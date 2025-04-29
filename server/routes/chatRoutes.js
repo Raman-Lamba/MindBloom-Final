@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '../generated/prisma/index.js';
 import { authenticateUser } from './authRoutes.js';
+import { MESSAGE_LIMIT } from '../server.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -49,6 +50,11 @@ router.post('/chats/:chatId/messages', async (req, res) => {
   const { chatId } = req.params;
 
   try {
+    // Validate required fields
+    if (!content) {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
     // Verify chat belongs to user
     const chat = await prisma.chat.findUnique({
       where: { id: chatId }
@@ -62,37 +68,42 @@ router.post('/chats/:chatId/messages', async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to access this chat' });
     }
 
-    // Check message count
-    const messageCount = await prisma.message.count({ where: { chatId } });
-    
-    if (messageCount >= 10) {
-      // Delete oldest message
-      const oldestMessage = await prisma.message.findFirst({
-        where: { chatId },
-        orderBy: { createdAt: 'asc' }
-      });
+    // Use a transaction to ensure atomicity of operations
+    const result = await prisma.$transaction(async (tx) => {
+      // Check message count
+      const messageCount = await tx.message.count({ where: { chatId } });
       
-      if (oldestMessage) {
-        await prisma.message.delete({ where: { id: oldestMessage.id } });
+      if (messageCount >= MESSAGE_LIMIT - 1) {
+        // Delete oldest message
+        const oldestMessage = await tx.message.findFirst({
+          where: { chatId },
+          orderBy: { createdAt: 'asc' }
+        });
+        
+        if (oldestMessage) {
+          await tx.message.delete({ where: { id: oldestMessage.id } });
+        }
       }
-    }
 
-    // Create new message
-    const message = await prisma.message.create({
-      data: {
-        content,
-        role,
-        chatId
-      }
+      // Create new message
+      const message = await tx.message.create({
+        data: {
+          content,
+          role,
+          chatId
+        }
+      });
+
+      // Update chat's updatedAt
+      await tx.chat.update({
+        where: { id: chatId },
+        data: { updatedAt: new Date() }
+      });
+
+      return message;
     });
 
-    // Update chat's updatedAt
-    await prisma.chat.update({
-      where: { id: chatId },
-      data: { updatedAt: new Date() }
-    });
-
-    res.status(201).json(message);
+    res.status(201).json(result);
   } catch (error) {
     console.error('Error creating message:', error);
     res.status(500).json({ error: 'Message creation failed' });

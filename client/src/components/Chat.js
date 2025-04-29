@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import { sendQuery, getChat, createChat, addMessage } from '../utils/api';
 import { AuthContext } from '../contexts/AuthContext';
+import { FaLightbulb, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 
 const Chat = () => {
   const { chatId } = useParams();
@@ -11,43 +13,61 @@ const Chat = () => {
   const [query, setQuery] = useState('');
   const [conversation, setConversation] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(true);
+  const [isNewChat, setIsNewChat] = useState(false);
   const messagesEndRef = useRef(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [isSending, setIsSending] = useState(false);
 
-  // Fetch chat data if chatId is provided
   useEffect(() => {
-    if (chatId) {
-      setChatLoading(true);
-      getChat(chatId)
-        .then(chatData => {
-          // Convert messages to the format needed for conversation
-          const formattedConversation = [];
+    const loadChat = async () => {
+      try {
+        setChatLoading(true);
+        setErrorMessage(null);
+        
+        if (chatId) {
+          const chatData = await getChat(chatId);
           
-          // Group messages by pairs (user question + assistant response)
-          for (let i = 0; i < chatData.messages.length; i += 2) {
-            const userMessage = chatData.messages[i];
-            const assistantMessage = chatData.messages[i + 1];
-            
-            if (userMessage && userMessage.role === 'user') {
+          // Format the messages into conversation
+          const formattedConversation = [];
+          let i = 0;
+
+          while (i < chatData.messages.length) {
+            // Find a user message
+            if (chatData.messages[i].role === 'user') {
+              const userMessage = chatData.messages[i];
+              
+              // Check if next message exists and is an assistant response
+              const assistantMessage = (i+1 < chatData.messages.length && 
+                                     chatData.messages[i+1].role === 'assistant') 
+                                     ? chatData.messages[i+1] : null;
+              
               formattedConversation.push({
                 question: userMessage.content,
-                answer: assistantMessage ? assistantMessage.content : 'Waiting for response...'
+                answer: assistantMessage ? assistantMessage.content : 'No response available'
               });
+              
+              // Skip assistant message if found, otherwise just move to next message
+              i += assistantMessage ? 2 : 1;
+            } else {
+              // Skip any orphaned assistant messages
+              i++;
             }
           }
           
           setConversation(formattedConversation);
-        })
-        .catch(error => {
-          console.error('Error fetching chat:', error);
-          // Redirect to home if chat not found
-          navigate('/');
-        })
-        .finally(() => {
-          setChatLoading(false);
-        });
-    }
-  }, [chatId, navigate]);
+          setIsNewChat(false);
+        }
+      } catch (error) {
+        setErrorMessage(error.message || 'Failed to load chat');
+        console.error('Error loading chat:', error);
+      } finally {
+        setChatLoading(false);
+      }
+    };
+
+    loadChat();
+  }, [chatId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,59 +155,65 @@ const Chat = () => {
 
   const handleNewChat = async () => {
     try {
-      // Create a new chat and navigate to it immediately
+      setErrorMessage(null);
       const newChat = await createChat();
-      
-      // Clear conversation immediately before navigation
-      setConversation([]);
-      
-      // Navigate to the new chat
       navigate(`/chat/${newChat.id}`);
     } catch (error) {
+      setErrorMessage(error.message || 'Failed to create a new chat');
       console.error('Error creating new chat:', error);
     }
   };
 
   const handleSendQuery = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || isSending) return;
     
-    const currentQuery = query;
+    setErrorMessage(null);
+    setIsSending(true);
+    
+    // Optimistically update the UI
+    const newQuestion = query.trim();
+    setConversation([...conversation, { 
+      question: newQuestion, 
+      answer: 'Thinking...'
+    }]);
     setQuery('');
-    setLoading(true);
     
     try {
-      // Add user message to conversation immediately
-      setConversation(prev => [
-        ...prev,
-        { question: currentQuery, answer: 'Thinking...' }
-      ]);
+      const response = await sendQuery(newQuestion, chatId);
       
-      // If no chatId, create a new chat
-      let currentChatId = chatId;
-      if (!currentChatId) {
-        const newChat = await createChat();
-        currentChatId = newChat.id;
-        navigate(`/chat/${currentChatId}`);
-      }
-      
-      // Save user message
-      await addMessage(currentChatId, currentQuery);
-      
-      // Get AI response
-      const data = await sendQuery(currentQuery, currentChatId);
-      
-      // Update conversation with response
-      setConversation(prev => [
-        ...prev.slice(0, -1),
-        { question: currentQuery, answer: data.answer }
-      ]);
-    } catch (err) {
-      setConversation(prev => [
-        ...prev.slice(0, -1),
-        { question: currentQuery, answer: 'Something went wrong. Please try again.' }
-      ]);
+      // Update the conversation with the actual response
+      setConversation(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          question: newQuestion,
+          answer: response.answer || 'Sorry, I couldn\'t generate a response'
+        };
+        return updated;
+      });
+    } catch (error) {
+      // Remove the temporary "Thinking..." message and show error
+      setConversation(prev => {
+        if (prev.length > 0 && prev[prev.length - 1].answer === 'Thinking...') {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            question: newQuestion,
+            answer: `Error: ${error.message || 'Failed to get a response'}`
+          };
+          return updated;
+        }
+        return prev;
+      });
+      setErrorMessage(error.message || 'Failed to get a response');
+    } finally {
+      setIsSending(false);
     }
-    setLoading(false);
+  };
+
+  // Helper to immediately use a suggested query
+  const handleSuggestedQuery = (suggestedQuery) => {
+    setQuery(suggestedQuery);
+    // Optional: automatically send the query
+    // In this implementation, we just fill the input box and let the user send it
   };
 
   if (chatLoading) {
@@ -230,6 +256,37 @@ const Chat = () => {
     }}>
       <Header />
 
+      {/* Error Message Banner */}
+      {errorMessage && (
+        <div style={{
+          backgroundColor: 'rgba(220, 53, 69, 0.9)',
+          color: 'white',
+          padding: '0.75rem 2rem',
+          position: 'absolute',
+          top: '60px',
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.95rem'
+        }}>
+          <FaExclamationTriangle style={{ marginRight: '0.5rem' }} />
+          {errorMessage}
+          <button onClick={() => setErrorMessage(null)} style={{
+            marginLeft: '1rem',
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            fontSize: '1.1rem',
+            cursor: 'pointer'
+          }}>
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Conversation Container */}
       <div style={{ 
         flex: 1,
@@ -249,13 +306,70 @@ const Chat = () => {
               color: '#a0a0a0'
             }}>
               <div style={{
-                fontSize: '1.5rem',
-                marginBottom: '1rem',
+                fontSize: '1.8rem',
+                marginBottom: '1.5rem',
                 color: '#68d5f8'
               }}>
-                Welcome to MindBloom
+                {currentUser?.name ? `Welcome, ${currentUser.name}!` : 'Welcome to MindBloom!'}
               </div>
-              <p>Start a conversation by typing your question below.</p>
+              
+              <p style={{ fontSize: '1.1rem', marginBottom: '2rem' }}>
+                I'm MindBloom, your AI assistant. Ask me anything, and I'll do my best to help you.
+              </p>
+              
+              {isNewChat && (
+                <div style={{ 
+                  backgroundColor: '#1e1e1e', 
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  maxWidth: '600px',
+                  margin: '0 auto 2rem auto',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    color: '#68d5f8' 
+                  }}>
+                    <FaLightbulb style={{ marginRight: '0.5rem' }} />
+                    <span style={{ fontWeight: '600' }}>Try asking me:</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                    {[
+                      "What can you help me with?",
+                      "Give me a creative writing prompt",
+                      "Explain quantum computing in simple terms",
+                      "Help me plan a weekend trip"
+                    ].map((suggestion, index) => (
+                      <div 
+                        key={index}
+                        onClick={() => handleSuggestedQuery(suggestion)}
+                        style={{
+                          backgroundColor: '#252525',
+                          padding: '0.8rem 1rem',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          border: '1px solid #333',
+                          fontSize: '1rem'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = '#2a2a2a';
+                          e.currentTarget.style.borderColor = '#68d5f8';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = '#252525';
+                          e.currentTarget.style.borderColor = '#333';
+                        }}
+                      >
+                        {suggestion}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             conversation.map((item, index) => (
@@ -326,64 +440,90 @@ const Chat = () => {
 
       {/* Input Container - Centered */}
       <div style={{ 
-        position: 'fixed',
+        position: 'sticky',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: '1.5rem',
-        backgroundColor: '#1e1e1e',
-        boxShadow: '0 -2px 12px rgba(0,0,0,0.2)'
+        padding: '1.5rem 2rem',
+        backgroundColor: 'rgba(18, 18, 18, 0.95)',
+        borderTop: '1px solid #333'
       }}>
-        <div style={{ 
+        <div style={{
           maxWidth: '800px',
           margin: '0 auto',
           position: 'relative',
-          width: '100%'
+          display: 'flex'
         }}>
-          <textarea
-            rows="3"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask your question..."
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendQuery();
-              }
-            }}
-            style={{ 
-              width: '100%',
-              padding: '1.2rem',
-              fontSize: '1rem',
-              borderRadius: '10px',
-              border: '1px solid #404040',
-              backgroundColor: '#2a2a2a',
-              color: '#e0e0e0',
-              resize: 'vertical',
-              minHeight: '60px',
-              transition: 'all 0.2s'
-            }}
-          />
           <button 
-            onClick={handleSendQuery} 
-            disabled={loading}
-            style={{ 
-              position: 'absolute',
-              right: '1.2rem',
-              bottom: '1.2rem',
-              padding: '0.6rem 1.8rem',
-              backgroundColor: '#4299e1',
-              color: '#ffffff',
+            onClick={handleNewChat}
+            style={{
+              backgroundColor: '#353535',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '50%',
+              width: '48px',
+              height: '48px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '12px',
               cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              transition: 'all 0.2s'
+              color: '#fff'
             }}
+            title="New Chat"
           >
-            {loading ? 'Thinking...' : 'Ask'}
+            <FaPlus />
           </button>
+          
+          <div style={{
+            flex: 1,
+            position: 'relative'
+          }}>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendQuery();
+                }
+              }}
+              placeholder={isNewChat ? "Ask me anything to get started..." : "Type your question here..."}
+              style={{
+                width: '100%',
+                padding: '14px 120px 14px 20px',
+                borderRadius: '25px',
+                border: 'none',
+                backgroundColor: '#353535',
+                color: '#fff',
+                fontSize: '1rem',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+              disabled={isSending}
+            />
+            
+            <button
+              onClick={handleSendQuery}
+              disabled={!query.trim() || isSending}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '8px',
+                bottom: '8px',
+                padding: '0 24px',
+                backgroundColor: isSending ? '#1d566e' : '#68d5f8',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '20px',
+                cursor: query.trim() && !isSending ? 'pointer' : 'not-allowed',
+                fontWeight: '600',
+                opacity: query.trim() && !isSending ? 1 : 0.7
+              }}
+            >
+              {isSending ? 'Thinking...' : 'Send'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -21,10 +21,22 @@ const Login = () => {
     try {
       setError('');
       setLoading(true);
-      await login(email, password);
-      navigate('/');
+      const result = await login(email, password);
+      
+      // Navigate to the default chat if available, otherwise go to home
+      if (result.defaultChat && result.defaultChat.id) {
+        navigate(`/chat/${result.defaultChat.id}`);
+      } else {
+        navigate('/');
+      }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to login');
+      if (err.response?.status === 429) {
+        setError('Too many login attempts. Please try again later.');
+      } else if (err.response?.status === 401) {
+        setError('Invalid credentials. Please check your email and password.');
+      } else {
+        setError(err.response?.data?.error || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

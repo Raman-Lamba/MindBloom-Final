@@ -11,6 +11,7 @@ import { Agent } from './pc.js'; // Import your existing Agent class
 import authRoutes, { authenticateUser } from './routes/authRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +30,9 @@ const io = new Server(server, {
     },
 });
 
+// Configure Express to trust proxy (required for rate limiter with X-Forwarded-For headers)
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? false : ["http://localhost:3000"],
@@ -40,11 +44,20 @@ if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, '../client/build')));
 }
 
+// Generate a secure JWT secret if not provided in environment
+// This is a hardcoded fallback only for development - in production use environment variables
+const JWT_SECRET = process.env.JWT_SECRET || 
+                  "dev_jwt_secret_do_not_use_in_production_" + crypto.randomBytes(16).toString('hex');
+
+// Define a consistent message limit
+const MESSAGE_LIMIT = 10;
+
+// Export shared constants
+export { JWT_SECRET, MESSAGE_LIMIT };
+
+// Use routes after exporting constants
 app.use('/auth', authRoutes);
 app.use('/api', chatRoutes);
-
-// Add JWT secret from environment or fallback
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
 // Initialize the agent with Pinecone and model setup
 async function initializeAgent() {
@@ -150,7 +163,7 @@ io.on("connection", async (socket) => {
             });
             
             // Remove oldest message if at limit
-            if (messageCount >= 9) { // 9 to make room for new message
+            if (messageCount >= MESSAGE_LIMIT - 1) { // Make room for new message
                 const oldestMessage = await prisma.message.findFirst({
                     where: { chatId: currentChatId },
                     orderBy: { createdAt: 'asc' }
@@ -238,7 +251,7 @@ app.post('/api/query', authenticateUser, async (req, res) => {
             where: { chatId: currentChatId } 
         });
         
-        if (messageCount >= 9) {
+        if (messageCount >= MESSAGE_LIMIT - 1) {
             const oldestMessage = await prisma.message.findFirst({
                 where: { chatId: currentChatId },
                 orderBy: { createdAt: 'asc' }

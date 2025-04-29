@@ -34,13 +34,48 @@ api.interceptors.response.use(
   }
 );
 
+// Function to handle API error responses in a consistent way
+const handleApiError = (error, customMessage = null) => {
+  console.error('API Error:', error);
+  
+  // Check if it's a network error
+  if (error.message === 'Network Error') {
+    throw new Error('Unable to connect to the server. Please check your internet connection.');
+  }
+  
+  // Check if it's a response error with status code
+  if (error.response) {
+    // Authentication errors
+    if (error.response.status === 401) {
+      throw new Error('Session expired. Please log in again.');
+    }
+    
+    // Rate limiting
+    if (error.response.status === 429) {
+      throw new Error('Too many requests. Please try again later.');
+    }
+    
+    // Server error
+    if (error.response.status >= 500) {
+      throw new Error('Server error occurred. Our team has been notified.');
+    }
+    
+    // Use error message from the response if available
+    if (error.response.data && error.response.data.message) {
+      throw new Error(error.response.data.message);
+    }
+  }
+  
+  // Use custom message or default to generic error
+  throw new Error(customMessage || 'Something went wrong. Please try again.');
+};
+
 export const fetchChats = async () => {
   try {
     const response = await api.get('/api/chats');
     return response.data;
   } catch (error) {
-    console.error('Error fetching chats:', error);
-    throw error;
+    handleApiError(error, 'Failed to fetch your chats');
   }
 };
 
@@ -49,8 +84,7 @@ export const createChat = async () => {
     const response = await api.post('/api/chats');
     return response.data;
   } catch (error) {
-    console.error('Error creating chat:', error);
-    throw error;
+    handleApiError(error, 'Failed to create a new chat');
   }
 };
 
@@ -59,31 +93,36 @@ export const getChat = async (chatId) => {
     const response = await api.get(`/api/chats/${chatId}`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching chat:', error);
-    throw error;
+    handleApiError(error, 'Failed to load this chat');
   }
 };
 
-export const addMessage = async (chatId, content) => {
+export const addMessage = async (chatId, message) => {
   try {
     const response = await api.post(`/api/chats/${chatId}/messages`, {
-      content,
-      role: 'user'
+      role: 'user',
+      content: message
     });
     return response.data;
   } catch (error) {
-    console.error('Error adding message:', error);
-    throw error;
+    handleApiError(error, 'Failed to send your message');
   }
 };
 
-export const sendQuery = async (query, chatId = null) => {
+export const sendQuery = async (query, chatId) => {
   try {
-    const response = await api.post('/api/query', { query, chatId });
+    // First, add the user message
+    await addMessage(chatId, query);
+    
+    // Then send the query to get AI response
+    const response = await api.post('/api/query', {
+      chatId,
+      query
+    });
+    
     return response.data;
   } catch (error) {
-    console.error('Error sending query:', error);
-    throw error;
+    handleApiError(error, 'Failed to get a response from AI');
   }
 };
 
