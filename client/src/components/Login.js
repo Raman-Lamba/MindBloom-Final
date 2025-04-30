@@ -49,7 +49,6 @@ const Login = () => {
       minHeight: '100vh',
       backgroundColor: '#121212',
       fontFamily: "'Segoe UI', Arial, sans-serif",
-      position: 'relative',
       color: '#e0e0e0'
     }}>
       <header style={{ 
@@ -69,7 +68,7 @@ const Login = () => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '2rem'
+        padding: '1rem'
       }}>
         <div style={{
           width: '100%',
@@ -126,8 +125,10 @@ const Login = () => {
                   borderRadius: '8px',
                   border: '1px solid #404040',
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="email"
               />
             </div>
 
@@ -155,8 +156,10 @@ const Login = () => {
                   borderRadius: '8px',
                   border: '1px solid #404040',
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="current-password"
               />
             </div>
 
@@ -172,9 +175,10 @@ const Login = () => {
                 borderRadius: '8px',
                 fontSize: '1rem',
                 fontWeight: '500',
-                cursor: 'pointer',
+                cursor: loading ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s',
-                marginBottom: '1.5rem'
+                marginBottom: '1.5rem',
+                opacity: loading ? 0.7 : 1
               }}
             >
               {loading ? 'Logging in...' : 'Login'}

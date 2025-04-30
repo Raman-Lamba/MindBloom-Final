@@ -12,7 +12,7 @@ const ChatList = () => {
 
   useEffect(() => {
     loadChats();
-  }, []);
+  }, [chatId]);
 
   const loadChats = async () => {
     try {
@@ -30,7 +30,6 @@ const ChatList = () => {
   const handleNewChat = async () => {
     try {
       const newChat = await createChat();
-      setChats([newChat, ...chats]);
       navigate(`/chat/${newChat.id}`);
     } catch (error) {
       console.error('Error creating new chat:', error);
@@ -87,10 +86,17 @@ const ChatList = () => {
           <button 
             onClick={handleNewChat}
             style={{
-              backgroundColor: 'transparent',
-              color: '#68d5f8',
+              backgroundColor: '#68d5f8',
+              color: '#121212',
               border: 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              borderRadius: '50%',
+              width: '30px',
+              height: '30px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background-color 0.2s'
             }}
           >
             <FaPlus />

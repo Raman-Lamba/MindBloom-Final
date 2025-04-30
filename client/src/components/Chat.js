@@ -374,7 +374,7 @@ const Chat = () => {
           ) : (
             conversation.map((item, index) => (
               <div key={index} style={{ marginBottom: '2rem' }}>
-                {/* User Question - Centered with fixed width */}
+                {/* User Question */}
                 <div style={{ 
                   backgroundColor: '#1e1e1e',
                   borderRadius: '12px',
@@ -382,15 +382,31 @@ const Chat = () => {
                   marginBottom: '1rem',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   width: '100%',
+                  maxWidth: '800px',
                   margin: '0 auto 1rem auto'
                 }}>
                   <div style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
                     color: '#a0a0a0',
                     fontSize: '0.9rem',
                     marginBottom: '0.5rem',
                     fontWeight: '500'
                   }}>
-                    Your question
+                    <div style={{ 
+                      width: '24px', 
+                      height: '24px', 
+                      borderRadius: '50%',
+                      backgroundColor: '#404040',
+                      marginRight: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.8rem'
+                    }}>
+                      {currentUser?.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <div>You</div>
                   </div>
                   <p style={{ 
                     margin: 0,
@@ -402,22 +418,39 @@ const Chat = () => {
                   </p>
                 </div>
                 
-                {/* Assistant Response - With same width as question */}
+                {/* Assistant Response */}
                 <div style={{ 
                   backgroundColor: '#252525',
                   borderRadius: '12px',
                   padding: '1.5rem',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   width: '100%',
+                  maxWidth: '800px',
                   margin: '0 auto'
                 }}>
                   <div style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
                     color: '#68d5f8',
                     fontSize: '0.9rem',
                     marginBottom: '0.5rem',
                     fontWeight: '500'
                   }}>
-                    Response
+                    <div style={{ 
+                      width: '24px', 
+                      height: '24px', 
+                      borderRadius: '50%',
+                      backgroundColor: '#0f4c75',
+                      marginRight: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#68d5f8',
+                      fontSize: '0.8rem'
+                    }}>
+                      MB
+                    </div>
+                    <div>MindBloom</div>
                   </div>
                   <div style={{ 
                     color: '#c0c0c0',
@@ -457,7 +490,8 @@ const Chat = () => {
           <button 
             onClick={handleNewChat}
             style={{
-              backgroundColor: '#353535',
+              backgroundColor: '#68d5f8',
+              color: '#121212',
               border: 'none',
               borderRadius: '50%',
               width: '48px',
@@ -467,7 +501,8 @@ const Chat = () => {
               justifyContent: 'center',
               marginRight: '12px',
               cursor: 'pointer',
-              color: '#fff'
+              transition: 'background-color 0.2s',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
             }}
             title="New Chat"
           >
@@ -498,7 +533,8 @@ const Chat = () => {
                 color: '#fff',
                 fontSize: '1rem',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}
               disabled={isSending}
             />
@@ -513,12 +549,13 @@ const Chat = () => {
                 bottom: '8px',
                 padding: '0 24px',
                 backgroundColor: isSending ? '#1d566e' : '#68d5f8',
-                color: '#fff',
+                color: isSending ? '#e0e0e0' : '#121212',
                 border: 'none',
                 borderRadius: '20px',
                 cursor: query.trim() && !isSending ? 'pointer' : 'not-allowed',
                 fontWeight: '600',
-                opacity: query.trim() && !isSending ? 1 : 0.7
+                opacity: query.trim() && !isSending ? 1 : 0.7,
+                transition: 'all 0.2s'
               }}
             >
               {isSending ? 'Thinking...' : 'Send'}

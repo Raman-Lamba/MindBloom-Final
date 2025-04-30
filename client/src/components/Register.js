@@ -117,6 +117,24 @@ const Register = () => {
     }
   };
 
+  // Function to get password strength text
+  const getStrengthText = () => {
+    switch (passwordStrength) {
+      case 0:
+        return 'Weak';
+      case 1:
+        return 'Weak';
+      case 2:
+        return 'Medium';
+      case 3:
+        return 'Strong';
+      case 4:
+        return 'Very Strong';
+      default:
+        return 'Weak';
+    }
+  };
+
   return (
     <div style={{ 
       display: 'flex',
@@ -124,7 +142,6 @@ const Register = () => {
       minHeight: '100vh',
       backgroundColor: '#121212',
       fontFamily: "'Segoe UI', Arial, sans-serif",
-      position: 'relative',
       color: '#e0e0e0'
     }}>
       <header style={{ 
@@ -144,7 +161,7 @@ const Register = () => {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '2rem'
+        padding: '1rem'
       }}>
         <div style={{
           width: '100%',
@@ -201,8 +218,10 @@ const Register = () => {
                   borderRadius: '8px',
                   border: '1px solid #404040',
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="name"
               />
             </div>
 
@@ -230,8 +249,10 @@ const Register = () => {
                   borderRadius: '8px',
                   border: '1px solid #404040',
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="email"
               />
             </div>
 
@@ -259,8 +280,10 @@ const Register = () => {
                   borderRadius: '8px',
                   border: `1px solid ${password ? getStrengthColor() : '#404040'}`,
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="new-password"
               />
             </div>
             
@@ -269,34 +292,40 @@ const Register = () => {
               <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ 
                   display: 'flex', 
-                  marginBottom: '0.5rem' 
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.5rem'
                 }}>
-                  {[1, 2, 3, 4].map((level) => (
-                    <div 
-                      key={level}
-                      style={{
-                        height: '4px',
-                        flex: 1,
-                        backgroundColor: passwordStrength >= level 
-                          ? getStrengthColor() 
-                          : '#404040',
-                        marginRight: level < 4 ? '4px' : 0,
-                        borderRadius: '2px',
-                        transition: 'background-color 0.3s'
-                      }}
-                    />
-                  ))}
+                  <span style={{ 
+                    fontSize: '0.8rem',
+                    color: getStrengthColor()
+                  }}>
+                    Password strength: {getStrengthText()}
+                  </span>
                 </div>
                 <div style={{ 
-                  fontSize: '0.8rem', 
-                  color: getStrengthColor() 
+                  height: '6px',
+                  backgroundColor: '#353535',
+                  borderRadius: '3px',
+                  overflow: 'hidden',
+                  marginBottom: '0.5rem'
                 }}>
-                  {passwordFeedback || (
-                    passwordStrength === 4 
-                      ? 'Strong password' 
-                      : 'Password requirements met, but could be stronger'
-                  )}
+                  <div style={{
+                    height: '100%',
+                    width: `${(passwordStrength / 4) * 100}%`,
+                    backgroundColor: getStrengthColor(),
+                    borderRadius: '3px',
+                    transition: 'width 0.3s ease-in-out'
+                  }} />
                 </div>
+                {passwordFeedback && (
+                  <div style={{ 
+                    fontSize: '0.8rem',
+                    color: '#a0a0a0'
+                  }}>
+                    {passwordFeedback}
+                  </div>
+                )}
               </div>
             )}
 
@@ -324,8 +353,10 @@ const Register = () => {
                   borderRadius: '8px',
                   border: '1px solid #404040',
                   backgroundColor: '#2a2a2a',
-                  color: '#e0e0e0'
+                  color: '#e0e0e0',
+                  boxSizing: 'border-box'
                 }}
+                autoComplete="new-password"
               />
             </div>
 
@@ -341,10 +372,10 @@ const Register = () => {
                 borderRadius: '8px',
                 fontSize: '1rem',
                 fontWeight: '500',
-                cursor: isPasswordValid() ? 'pointer' : 'not-allowed',
+                cursor: isPasswordValid() && !loading ? 'pointer' : 'not-allowed',
                 transition: 'background-color 0.2s',
                 marginBottom: '1.5rem',
-                opacity: isPasswordValid() ? 1 : 0.7
+                opacity: isPasswordValid() && !loading ? 1 : 0.7
               }}
             >
               {loading ? 'Registering...' : 'Register'}

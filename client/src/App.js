@@ -70,7 +70,7 @@ const AppContent = () => {
               <ChatList />
               <div style={{ 
                 marginLeft: '250px', 
-                flex: 1,
+                width: 'calc(100% - 250px)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -100,7 +100,10 @@ const AppContent = () => {
           <PrivateRoute>
             <div style={{ display: 'flex' }}>
               <ChatList />
-              <div style={{ flex: 1, marginLeft: '250px' }}>
+              <div style={{ 
+                width: 'calc(100% - 250px)', 
+                marginLeft: '250px'
+              }}>
                 <Chat />
               </div>
             </div>
