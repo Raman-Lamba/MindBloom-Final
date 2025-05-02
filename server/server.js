@@ -62,16 +62,9 @@ app.use('/api', chatRoutes);
 // Initialize the agent with Pinecone and model setup
 async function initializeAgent() {
     try {
-        const { OpenAI } = await import("openai");
-        
-        // Initialize your LLM configuration
-        const llm = new OpenAI({
-            baseURL: 'https://openrouter.ai/api/v1',
-            apiKey: process.env.OPENROUTER_API_KEY,
-        });
-
-        // Create agent instance
-        return new Agent(llm);
+        // Import the Agent from pc.js
+        const agent = new Agent();
+        return agent;
     } catch (error) {
         console.error('Error initializing agent:', error);
         throw error;

@@ -7,7 +7,7 @@ import { JWT_SECRET } from '../server.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const TOKEN_EXPIRY = '1d';
+const TOKEN_EXPIRY = '7d';
 
 // Rate limiter for auth endpoints - configured to work with 'trust proxy'
 const authLimiter = rateLimit({
