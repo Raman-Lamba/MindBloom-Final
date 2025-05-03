@@ -107,79 +107,125 @@ const Chat = ({ toggleSidebar }) => {
   }, [conversation]);
 
   const formatAnswer = (text) => {
-    // First handle the markdown headings
-    const processedText = text
-      .split('\n')
-      .map((line, lineIndex) => {
-        // Handle headings with ### (h3)
-        if (line.startsWith('### ')) {
+    // Check for <think> tags
+    const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/);
+    let thinkContent = null;
+    let mainContent = text;
+    
+    // Extract thinking content if it exists
+    if (thinkMatch) {
+      thinkContent = thinkMatch[1].trim();
+      mainContent = text.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+    }
+    
+    // Process main content
+    const processMainContent = (content) => {
+      // First handle the markdown headings
+      const processedText = content
+        .split('\n')
+        .map((line, lineIndex) => {
+          // Handle headings with ### (h3)
+          if (line.startsWith('### ')) {
+            return (
+              <h3 
+                key={`heading-${lineIndex}`} 
+                style={{ 
+                  color: '#68d5f8', 
+                  fontSize: 'clamp(1.1rem, 4vw, 1.3rem)', 
+                  fontWeight: '600',
+                  marginTop: '1.5rem',
+                  marginBottom: '0.75rem'
+                }}
+              >
+                {line.substring(4)}
+              </h3>
+            );
+          }
+          
+          // Handle bullet points
+          if (line.trim().startsWith('- ') || line.trim().match(/^\d+\.\s/)) {
+            return (
+              <div 
+                key={`bullet-${lineIndex}`} 
+                style={{ 
+                  marginLeft: '1rem',
+                  marginBottom: '0.5rem' 
+                }}
+              >
+                {line}
+              </div>
+            );
+          }
+          
+          // Regular text with line breaks
           return (
-            <h3 
-              key={`heading-${lineIndex}`} 
-              style={{ 
-                color: '#68d5f8', 
-                fontSize: 'clamp(1.1rem, 4vw, 1.3rem)', 
-                fontWeight: '600',
-                marginTop: '1.5rem',
-                marginBottom: '0.75rem'
-              }}
-            >
-              {line.substring(4)}
-            </h3>
-          );
-        }
-        
-        // Handle bullet points
-        if (line.trim().startsWith('- ') || line.trim().match(/^\d+\.\s/)) {
-          return (
-            <div 
-              key={`bullet-${lineIndex}`} 
-              style={{ 
-                marginLeft: '1rem',
-                marginBottom: '0.5rem' 
-              }}
-            >
+            <div key={`line-${lineIndex}`} style={{ marginBottom: '0.5rem' }}>
               {line}
             </div>
           );
-        }
-        
-        // Regular text with line breaks
-        return (
-          <div key={`line-${lineIndex}`} style={{ marginBottom: '0.5rem' }}>
-            {line}
-          </div>
-        );
-      });
+        });
 
-    // Then handle the bold text with **
-    const renderContent = (content) => {
-      if (typeof content !== 'string') return content;
-      
-      return content.split('**').map((part, index) => {
-        if (index % 2 === 1) {
-          return (
-            <strong key={`bold-${index}`} style={{ color: '#68d5f8' }}>
-              {part}
-            </strong>
+      // Then handle the bold text with **
+      const renderContent = (content) => {
+        if (typeof content !== 'string') return content;
+        
+        return content.split('**').map((part, index) => {
+          if (index % 2 === 1) {
+            return (
+              <strong key={`bold-${index}`} style={{ color: '#68d5f8' }}>
+                {part}
+              </strong>
+            );
+          }
+          return part;
+        });
+      };
+
+      return processedText.map(item => {
+        if (React.isValidElement(item)) {
+          return React.cloneElement(
+            item, 
+            {...item.props}, 
+            typeof item.props.children === 'string' 
+              ? renderContent(item.props.children) 
+              : item.props.children
           );
         }
-        return part;
+        return item;
       });
     };
-
-    return processedText.map(item => {
-      if (React.isValidElement(item)) {
-        return React.cloneElement(
-          item, 
-          {...item.props}, 
-          typeof item.props.children === 'string' 
-            ? renderContent(item.props.children) 
-            : item.props.children
-        );
-      }
-      return item;
-    });
+    
+    return (
+      <>
+        {thinkContent && (
+          <div style={{
+            backgroundColor: '#2a2a36',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '16px',
+            borderLeft: '4px solid #9580ff',
+            fontSize: '0.95em',
+            color: '#c0c0d0'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '8px',
+              fontWeight: 600,
+              color: '#9580ff'
+            }}>
+              <span>Assistant's reasoning</span>
+            </div>
+            {thinkContent.split('\n').map((line, i) => (
+              <div key={i} style={{ marginBottom: '4px' }}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+        {processMainContent(mainContent)}
+      </>
+    );
   };
 
   const handleNewChat = async () => {
