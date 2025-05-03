@@ -107,15 +107,41 @@ const Chat = ({ toggleSidebar }) => {
   }, [conversation]);
 
   const formatAnswer = (text) => {
-    // Check for <think> tags
-    const thinkMatch = text.match(/<think>([\s\S]*?)<\/think>/);
+    // Guard against null or undefined text
+    if (!text) return null;
+    
+    // Simple string check instead of regex to avoid potential issues
+    const thinkStartTag = '<think>';
+    const thinkEndTag = '</think>';
+    
     let thinkContent = null;
     let mainContent = text;
     
-    // Extract thinking content if it exists
-    if (thinkMatch) {
-      thinkContent = thinkMatch[1].trim();
-      mainContent = text.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+    // Check if think tags exist in the text
+    if (text.includes(thinkStartTag) && text.includes(thinkEndTag)) {
+      try {
+        // Find the start and end positions
+        const startIndex = text.indexOf(thinkStartTag);
+        const endIndex = text.indexOf(thinkEndTag) + thinkEndTag.length;
+        
+        // Extract the think content (without the tags)
+        thinkContent = text.substring(
+          startIndex + thinkStartTag.length, 
+          text.indexOf(thinkEndTag)
+        ).trim();
+        
+        // Get content before and after the think section
+        const beforeThink = text.substring(0, startIndex).trim();
+        const afterThink = text.substring(endIndex).trim();
+        
+        // Combine to get the main content
+        mainContent = (beforeThink + " " + afterThink).trim();
+      } catch (error) {
+        console.error("Error parsing think tags:", error);
+        // Fallback to original text if parsing fails
+        mainContent = text;
+        thinkContent = null;
+      }
     }
     
     // Process main content
@@ -195,6 +221,9 @@ const Chat = ({ toggleSidebar }) => {
       });
     };
     
+    // Only attempt to render if we have content
+    if (!mainContent) return null;
+    
     return (
       <>
         {thinkContent && (
@@ -254,29 +283,34 @@ const Chat = ({ toggleSidebar }) => {
     setQuery('');
     
     try {
+      // Ensure we're sending a single query
       const response = await sendQuery(newQuestion, chatId);
       
       // Update the conversation with the actual response
       setConversation(prev => {
         const updated = [...prev];
-        updated[updated.length - 1] = {
-          question: newQuestion,
-          answer: response.answer || 'Sorry, I couldn\'t generate a response'
-        };
+        // Make sure we're updating the last conversation item
+        const lastIndex = updated.length - 1;
+        if (lastIndex >= 0 && updated[lastIndex].answer === 'Thinking...') {
+          updated[lastIndex] = {
+            question: newQuestion,
+            answer: response.answer || 'Sorry, I couldn\'t generate a response'
+          };
+        }
         return updated;
       });
     } catch (error) {
       // Remove the temporary "Thinking..." message and show error
       setConversation(prev => {
-        if (prev.length > 0 && prev[prev.length - 1].answer === 'Thinking...') {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+        if (lastIndex >= 0 && updated[lastIndex].answer === 'Thinking...') {
+          updated[lastIndex] = {
             question: newQuestion,
             answer: `Error: ${error.message || 'Failed to get a response'}`
           };
-          return updated;
         }
-        return prev;
+        return updated;
       });
       setErrorMessage(error.message || 'Failed to get a response');
     } finally {

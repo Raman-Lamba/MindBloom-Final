@@ -111,10 +111,10 @@ export const addMessage = async (chatId, message) => {
 
 export const sendQuery = async (query, chatId) => {
   try {
-    // First, add the user message
-    await addMessage(chatId, query);
+    // Remove the client-side message creation that's causing duplication
+    // Let the server create the message as part of the query processing
     
-    // Then send the query to get AI response
+    // Send the query to get AI response
     const response = await api.post('/api/query', {
       chatId,
       query
