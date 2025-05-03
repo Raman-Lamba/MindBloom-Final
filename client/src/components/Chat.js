@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from './Header';
-import { sendQuery, getChat, createChat, addMessage } from '../utils/api';
+import { sendQuery, getChat, createChat } from '../utils/api';
 import { AuthContext } from '../contexts/AuthContext';
-import { FaLightbulb, FaExclamationTriangle } from 'react-icons/fa';
-import { FaPlus } from 'react-icons/fa';
+import { FaLightbulb, FaExclamationTriangle, FaPlus } from 'react-icons/fa';
+import useResponsive from '../utils/useResponsive';
 
-const Chat = () => {
+const Chat = ({ toggleSidebar }) => {
   const { chatId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useContext(AuthContext);
@@ -18,6 +18,8 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [isSending, setIsSending] = useState(false);
+  const { isMobile } = useResponsive();
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const loadChat = async () => {
@@ -69,6 +71,33 @@ const Chat = () => {
     loadChat();
   }, [chatId]);
 
+  // iOS keyboard adjustment
+  useEffect(() => {
+    if (!isMobile) return;
+    
+    const handleFocus = () => {
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    };
+    
+    const handleBlur = () => {
+      window.scrollTo(0, 0);
+    };
+    
+    const input = inputRef.current;
+    if (input) {
+      input.addEventListener('focus', handleFocus);
+      input.addEventListener('blur', handleBlur);
+      
+      return () => {
+        input.removeEventListener('focus', handleFocus);
+        input.removeEventListener('blur', handleBlur);
+      };
+    }
+  }, [isMobile]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -89,7 +118,7 @@ const Chat = () => {
               key={`heading-${lineIndex}`} 
               style={{ 
                 color: '#68d5f8', 
-                fontSize: '1.3rem', 
+                fontSize: 'clamp(1.1rem, 4vw, 1.3rem)', 
                 fontWeight: '600',
                 marginTop: '1.5rem',
                 marginBottom: '0.75rem'
@@ -206,14 +235,15 @@ const Chat = () => {
       setErrorMessage(error.message || 'Failed to get a response');
     } finally {
       setIsSending(false);
+      // Focus input again after sending
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   };
 
-  // Helper to immediately use a suggested query
   const handleSuggestedQuery = (suggestedQuery) => {
     setQuery(suggestedQuery);
-    // Optional: automatically send the query
-    // In this implementation, we just fill the input box and let the user send it
   };
 
   if (chatLoading) {
@@ -226,7 +256,7 @@ const Chat = () => {
         fontFamily: "'Segoe UI', Arial, sans-serif",
         color: '#e0e0e0'
       }}>
-        <Header />
+        <Header toggleSidebar={toggleSidebar} />
         <div style={{ 
           flex: 1,
           display: 'flex',
@@ -248,20 +278,22 @@ const Chat = () => {
     <div style={{ 
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
+      height: '100%',
       backgroundColor: '#121212',
       fontFamily: "'Segoe UI', Arial, sans-serif",
       position: 'relative',
       color: '#e0e0e0'
-    }}>
-      <Header />
+    }} 
+    className="vh-fix" // iOS fix class
+    >
+      <Header toggleSidebar={toggleSidebar} />
 
       {/* Error Message Banner */}
       {errorMessage && (
         <div style={{
           backgroundColor: 'rgba(220, 53, 69, 0.9)',
           color: 'white',
-          padding: '0.75rem 2rem',
+          padding: '0.75rem 1rem',
           position: 'absolute',
           top: '60px',
           left: 0,
@@ -281,7 +313,9 @@ const Chat = () => {
             color: 'white',
             fontSize: '1.1rem',
             cursor: 'pointer'
-          }}>
+          }}
+          aria-label="Dismiss Error"
+          >
             ×
           </button>
         </div>
@@ -291,8 +325,8 @@ const Chat = () => {
       <div style={{ 
         flex: 1,
         overflowY: 'auto',
-        padding: '2rem',
-        paddingBottom: '120px'
+        padding: isMobile ? '1rem' : '2rem',
+        paddingBottom: isMobile ? '130px' : '150px' // Extra padding for input container
       }}>
         <div style={{ 
           maxWidth: '800px', 
@@ -306,14 +340,18 @@ const Chat = () => {
               color: '#a0a0a0'
             }}>
               <div style={{
-                fontSize: '1.8rem',
+                fontSize: 'clamp(1.5rem, 5vw, 1.8rem)',
                 marginBottom: '1.5rem',
                 color: '#68d5f8'
               }}>
                 {currentUser?.name ? `Welcome, ${currentUser.name}!` : 'Welcome to MindBloom!'}
               </div>
               
-              <p style={{ fontSize: '1.1rem', marginBottom: '2rem' }}>
+              <p style={{ 
+                fontSize: 'clamp(0.9rem, 3vw, 1.1rem)', 
+                marginBottom: '2rem',
+                padding: '0 10px'
+              }}>
                 I'm MindBloom, your AI assistant. Ask me anything, and I'll do my best to help you.
               </p>
               
@@ -378,7 +416,7 @@ const Chat = () => {
                 <div style={{ 
                   backgroundColor: '#1e1e1e',
                   borderRadius: '12px',
-                  padding: '1.5rem',
+                  padding: isMobile ? '1rem' : '1.5rem',
                   marginBottom: '1rem',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   width: '100%',
@@ -411,8 +449,9 @@ const Chat = () => {
                   <p style={{ 
                     margin: 0,
                     color: '#e0e0e0',
-                    fontSize: '1.1rem',
-                    lineHeight: '1.6'
+                    fontSize: 'clamp(0.95rem, 3vw, 1.1rem)',
+                    lineHeight: '1.6',
+                    wordBreak: 'break-word'
                   }}>
                     {item.question}
                   </p>
@@ -422,7 +461,7 @@ const Chat = () => {
                 <div style={{ 
                   backgroundColor: '#252525',
                   borderRadius: '12px',
-                  padding: '1.5rem',
+                  padding: isMobile ? '1rem' : '1.5rem',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   width: '100%',
                   maxWidth: '800px',
@@ -454,8 +493,9 @@ const Chat = () => {
                   </div>
                   <div style={{ 
                     color: '#c0c0c0',
-                    fontSize: '1.1rem',
-                    lineHeight: '1.6'
+                    fontSize: 'clamp(0.95rem, 3vw, 1.1rem)',
+                    lineHeight: '1.6',
+                    wordBreak: 'break-word'
                   }}>
                     {item.answer === 'Thinking...' ? (
                       <div style={{ color: '#68d5f8' }}>Thinking...</div>
@@ -473,13 +513,14 @@ const Chat = () => {
 
       {/* Input Container - Centered */}
       <div style={{ 
-        position: 'sticky',
+        position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: '1.5rem 2rem',
+        padding: isMobile ? '0.75rem' : '1.5rem 2rem',
         backgroundColor: 'rgba(18, 18, 18, 0.95)',
-        borderTop: '1px solid #333'
+        borderTop: '1px solid #333',
+        zIndex: 90
       }}>
         <div style={{
           maxWidth: '800px',
@@ -487,33 +528,37 @@ const Chat = () => {
           position: 'relative',
           display: 'flex'
         }}>
-          <button 
-            onClick={handleNewChat}
-            style={{
-              backgroundColor: '#68d5f8',
-              color: '#121212',
-              border: 'none',
-              borderRadius: '50%',
-              width: '48px',
-              height: '48px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: '12px',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-            }}
-            title="New Chat"
-          >
-            <FaPlus />
-          </button>
+          {!isMobile && (
+            <button 
+              onClick={handleNewChat}
+              style={{
+                backgroundColor: '#68d5f8',
+                color: '#121212',
+                border: 'none',
+                borderRadius: '50%',
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: '12px',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+              title="New Chat"
+              aria-label="New Chat"
+            >
+              <FaPlus />
+            </button>
+          )}
           
           <div style={{
             flex: 1,
             position: 'relative'
           }}>
             <input
+              ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -526,12 +571,12 @@ const Chat = () => {
               placeholder={isNewChat ? "Ask me anything to get started..." : "Type your question here..."}
               style={{
                 width: '100%',
-                padding: '14px 120px 14px 20px',
+                padding: isMobile ? '12px 70px 12px 15px' : '14px 120px 14px 20px',
                 borderRadius: '25px',
                 border: 'none',
                 backgroundColor: '#353535',
                 color: '#fff',
-                fontSize: '1rem',
+                fontSize: isMobile ? '16px' : '1rem', // iOS zoom prevention
                 outline: 'none',
                 boxSizing: 'border-box',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
@@ -545,18 +590,22 @@ const Chat = () => {
               style={{
                 position: 'absolute',
                 right: '8px',
-                top: '8px',
-                bottom: '8px',
-                padding: '0 24px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                padding: isMobile ? '0 15px' : '0 24px',
+                height: isMobile ? '32px' : '36px',
                 backgroundColor: isSending ? '#1d566e' : '#68d5f8',
                 color: isSending ? '#e0e0e0' : '#121212',
                 border: 'none',
                 borderRadius: '20px',
                 cursor: query.trim() && !isSending ? 'pointer' : 'not-allowed',
                 fontWeight: '600',
+                fontSize: isMobile ? '14px' : '1rem',
                 opacity: query.trim() && !isSending ? 1 : 0.7,
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                minWidth: isMobile ? '60px' : '80px' // Ensure good touch target
               }}
+              aria-label={isSending ? "Thinking" : "Send Message"}
             >
               {isSending ? 'Thinking...' : 'Send'}
             </button>
@@ -567,4 +616,4 @@ const Chat = () => {
   );
 };
 
-export default Chat; 
+export default Chat;

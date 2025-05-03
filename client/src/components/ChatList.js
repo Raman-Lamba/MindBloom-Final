@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FaPlus, FaComment } from 'react-icons/fa';
+import { FaPlus, FaComment, FaTimes } from 'react-icons/fa';
 import { fetchChats, createChat } from '../utils/api';
+import useResponsive from '../utils/useResponsive';
 
-const ChatList = () => {
+const ChatList = ({ isOpen, toggleSidebar }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { chatId } = useParams();
   const navigate = useNavigate();
+  const { isMobile } = useResponsive();
 
   useEffect(() => {
     loadChats();
@@ -31,6 +33,9 @@ const ChatList = () => {
     try {
       const newChat = await createChat();
       navigate(`/chat/${newChat.id}`);
+      if (isMobile) {
+        toggleSidebar();
+      }
     } catch (error) {
       console.error('Error creating new chat:', error);
     }
@@ -55,10 +60,17 @@ const ChatList = () => {
     return 'New chat';
   };
 
+  const handleChatClick = () => {
+    if (isMobile) {
+      toggleSidebar();
+    }
+  };
+
   return (
     <div style={{
-      width: '250px',
-      minHeight: '100vh',
+      width: isMobile ? '85%' : '250px',
+      maxWidth: '300px',
+      height: '100%',
       backgroundColor: '#1a1a1a',
       borderRight: '1px solid #333',
       display: 'flex',
@@ -66,14 +78,23 @@ const ChatList = () => {
       position: 'fixed',
       left: 0,
       top: 0,
-      zIndex: 100
+      bottom: 0,
+      zIndex: 1000,
+      transform: isOpen || !isMobile ? 'translateX(0)' : 'translateX(-100%)',
+      transition: 'transform 0.3s ease',
+      boxShadow: isOpen ? '0 0 15px rgba(0,0,0,0.5)' : 'none',
+      overflowY: 'auto'
     }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '1rem',
-        borderBottom: '1px solid #333'
+        borderBottom: '1px solid #333',
+        position: 'sticky',
+        top: 0,
+        backgroundColor: '#1a1a1a',
+        zIndex: 10
       }}>
         <h3 style={{ 
           margin: 0, 
@@ -82,7 +103,7 @@ const ChatList = () => {
         }}>
           Chats
         </h3>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <button 
             onClick={handleNewChat}
             style={{
@@ -96,11 +117,32 @@ const ChatList = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'background-color 0.2s'
+              transition: 'background-color 0.2s',
+              marginRight: isMobile ? '10px' : '0'
             }}
+            aria-label="New Chat"
           >
             <FaPlus />
           </button>
+          
+          {isMobile && (
+            <button
+              onClick={toggleSidebar}
+              style={{
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#a0a0a0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '5px'
+              }}
+              aria-label="Close Sidebar"
+            >
+              <FaTimes size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -129,11 +171,12 @@ const ChatList = () => {
           No chats yet
         </div>
       ) : (
-        <div style={{ overflowY: 'auto' }}>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
           {chats.map(chat => (
             <Link 
               key={chat.id}
               to={`/chat/${chat.id}`}
+              onClick={handleChatClick}
               style={{
                 display: 'block',
                 padding: '0.8rem 1rem',
